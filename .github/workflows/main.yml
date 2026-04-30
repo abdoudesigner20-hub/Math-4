@@ -1,0 +1,91 @@
+name: 🔨 Build MathGenius APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # ─── 1. Checkout code ───────────────────────────────────────
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # ─── 2. Setup Java 17 ───────────────────────────────────────
+      - name: ☕ Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # ─── 3. Setup Node.js ───────────────────────────────────────
+      - name: 🟩 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ─── 4. Install dependencies ─────────────────────────────────
+      - name: 📦 Install Node Dependencies
+        run: npm install
+
+      # ─── 5. Sync Capacitor with Android ─────────────────────────
+      - name: 🔄 Sync Capacitor → Android
+        run: npx cap sync android
+
+      # ─── 6. Setup Android SDK ───────────────────────────────────
+      - name: 🤖 Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # ─── 7. Grant Gradle execute permission ─────────────────────
+      - name: 🔑 Grant Gradle Execute Permission
+        run: chmod +x android/gradlew
+
+      # ─── 8. Build Debug APK ─────────────────────────────────────
+      - name: 🏗️ Build Debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      # ─── 9. Upload APK as artifact ──────────────────────────────
+      - name: 📤 Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MathGenius-Debug-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      # ─── 10. Create Release (on push to main) ───────────────────
+      - name: 🚀 Create GitHub Release
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "MathGenius v${{ github.run_number }}"
+          body: |
+            ## 🧮 MathGenius — Build #${{ github.run_number }}
+            
+            ### 📱 Installation
+            1. Téléchargez le fichier `app-debug.apk` ci-dessous
+            2. Sur votre téléphone Android : **Paramètres → Sécurité → Sources inconnues** ✅
+            3. Ouvrez le fichier APK téléchargé et installez
+            
+            ### ✨ Fonctionnalités
+            - 🤖 Assistant IA (Claude) — répond à toutes les questions
+            - 🔢 Calculatrice mathématique avancée avec étapes détaillées
+            - 📐 Géométrie : cercle, rectangle, triangle, sphère, cylindre...
+            - 🔺 Propriétés du triangle (angles, côtés en cm, hauteurs...)
+            - 📚 Formules mathématiques interactives
+            - 🌍 6 langues : Français, Arabe, Anglais, Espagnol, Allemand, Italien
+            - 📜 Historique des calculs
+          files: android/app/build/outputs/apk/debug/app-debug.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
