@@ -1,0 +1,11 @@
+include ':app'
+
+def capacitorModules = [
+    ':capacitor-android'
+]
+
+capacitorModules.each { path ->
+    include path
+    def name = path.replaceAll(":", "")
+    project(path).projectDir = new File("./node_modules/@capacitor/android/capacitor")
+}
